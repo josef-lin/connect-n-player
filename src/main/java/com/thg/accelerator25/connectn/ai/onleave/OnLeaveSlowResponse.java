@@ -358,4 +358,46 @@ public class OnLeaveSlowResponse extends Player {
 
         return count;
     }
+
+//    private int opponentThreats(Counter[][] counterPlacements, Counter counter){
+//        int count = 0;
+//        for (int row = 0; row < counterPlacements.length; row++) {
+//            for (int col = 0; col < counterPlacements[row].length; col++) {
+//
+//            }
+//        }
+//        return -1;
+//    }
+
+    private int centreControlColumn(Counter[][] counterPlacements, Counter counter){
+        int count = 0;
+        int[] columnWeight = {0, 1, 2, 3, 4, 4, 3, 2, 1, 0};
+        for (int row = 0; row < counterPlacements.length; row++) {
+            for (int col = 0; col < counterPlacements[row].length; col++) {
+                if (counterPlacements[row][col] == counter) {
+                    count +=  columnWeight[col];
+                }
+            }
+        }
+        return count;
+    }
+
+    private int contreControlColumnRow(Counter[][] counterPlacements, Counter counter){
+        int count = 0;
+        int[] columnWeight = {0, 1, 2, 3, 4, 4, 3, 2, 1, 0};
+        int[] rowWeight = {0, 1, 2, 3, 3, 2, 1, 0};
+        for (int row = 0; row < counterPlacements.length; row++) {
+            for (int col = 0; col < counterPlacements[row].length; col++) {
+                if (counterPlacements[row][col] == counter) {
+                    count = count + columnWeight[col] + rowWeight[row];
+                }
+            }
+        }
+        return count;
+    }
+
+
+
+
+
 }

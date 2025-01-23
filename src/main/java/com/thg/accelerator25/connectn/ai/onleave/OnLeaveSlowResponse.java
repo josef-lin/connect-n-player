@@ -133,7 +133,7 @@ public class OnLeaveSlowResponse extends Player {
 
         for (int move : moves) {
             Board newBoard = new Board(board, move, currentCounter);
-            int score = minimax(newBoard, depth - 1, true, alpha, beta, currentCounter.getOther(), initialDepth);
+            int score = minimax(newBoard, depth - 1, !isMaximizing, alpha, beta, currentCounter.getOther(), initialDepth);
 
             if (isMaximizing) {
                 bestScore = Math.max(score, bestScore);

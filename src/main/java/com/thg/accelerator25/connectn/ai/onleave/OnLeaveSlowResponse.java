@@ -192,8 +192,8 @@ public class OnLeaveSlowResponse extends Player {
                 score -= 750 * oppTwosHere.get(1);
 
                 // Centre control
-                score += centreControlColumn(counterPlacements, row, col, counter);
-                score -= centreControlColumn(counterPlacements, row, col, counter.getOther());
+                score += 500 * centreControlColumn(counterPlacements, row, col, counter);
+                score -= 500 * centreControlColumn(counterPlacements, row, col, counter.getOther());
 
                 // Additional offensive strategies
                 score += 200 * ((isStackedPairs(counterPlacements, row, col, counter)) ? 1 : 0);

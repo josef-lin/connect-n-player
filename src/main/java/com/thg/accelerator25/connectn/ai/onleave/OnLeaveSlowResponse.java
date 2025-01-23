@@ -7,7 +7,6 @@ import com.thehutgroup.accelerator.connectn.player.Player;
 
 import java.util.*;
 
-
 public class OnLeaveSlowResponse extends Player {
 
     // timeout value, gives 500ms buffer

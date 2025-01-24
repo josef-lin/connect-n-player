@@ -24,7 +24,7 @@ public class AppTest {
     OnLeaveSlowResponse mockResponse = new OnLeaveSlowResponse(Counter.X);
     GameConfig config = new GameConfig(7, 6, 4); // 7 columns, 6 rows
     Board board = new Board(config);
-    List<Integer> legalMoves = mockResponse.getLegalMoves(board);
+    List<Integer> legalMoves = mockResponse.getLegalMoves(board, board.getCounterPlacements());
     assertEquals(config.getWidth(), legalMoves.size());
     for (int i = 0; i < config.getWidth(); i++) {
       assertTrue(legalMoves.contains(i));

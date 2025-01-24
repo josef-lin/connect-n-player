@@ -25,7 +25,7 @@ public class OnLeaveSlowResponse extends Player {
         //TODO: some crazy analysis
         //TODO: make sure said analysis uses less than 2G of heap and returns within 10 seconds on whichever machine is running it
         startTime = System.currentTimeMillis();
-        List<Integer> legalMoves = getLegalMoves(board);
+        List<Integer> legalMoves = getLegalMoves(board, board.getCounterPlacements());
         int bestMoveFound = legalMoves.get(0);
         int bestScoreFound = Integer.MIN_VALUE;
         int bestDepthFound = 0;
@@ -102,15 +102,22 @@ public class OnLeaveSlowResponse extends Player {
     private static class TimeoutException extends Exception {
     }
 
-    public List<Integer> getLegalMoves(Board board) {
+    public List<Integer> getLegalMoves(Board board, Counter[][] counterPlacements) {
         List<Integer> legalMoves = new ArrayList<>();
-        Counter[][] counterPlacements = board.getCounterPlacements();
         for (int col = 0; col < board.getConfig().getWidth(); col++) {
             if (counterPlacements[col][board.getConfig().getHeight() - 1] == null) {
                 legalMoves.add(col);
             }
         }
         return legalMoves;
+    }
+
+    private int getNextMove(Counter[][] counterPlacements, int col) {
+        int row = 0;
+        while (counterPlacements[col][row] != null) {
+            row++;
+        }
+        return row;
     }
 
     private int minimax(Board board, int depth, boolean isMaximizing,
@@ -127,7 +134,7 @@ public class OnLeaveSlowResponse extends Player {
             return boardHashMap.get(boardHash);
         }
 
-        List<Integer> moves = getLegalMoves(board);
+        List<Integer> moves = getLegalMoves(board, board.getCounterPlacements());
         int bestScore = isMaximizing ? Integer.MIN_VALUE : Integer.MAX_VALUE;
 
         for (int move : moves) {
@@ -156,29 +163,36 @@ public class OnLeaveSlowResponse extends Player {
         Counter[][] counterPlacements = board.getCounterPlacements();
         Counter counter = getCounter();
         int score = 0;
-        for (int col = 0; col < counterPlacements.length; col++) {
-            for (int row = 0; row < counterPlacements[col].length; row++) {
 
-                // Immediate wins/losses, should choose option that wins in fastest way
-                if (hasFourInARow(counterPlacements, row, col, counter)) {
+        // score based on sum of potential next moves
+        for (int col : getLegalMoves(board, counterPlacements)) {
+            int row = getNextMove(counterPlacements, col);
+            try {
+                Board tempBoard = new Board(board, col, getCounter());
+                Counter[][] tempCounterPlacements = tempBoard.getCounterPlacements();
+
+                // Immediate wins/losses, should choose option that wins in the fastest way
+                if (hasFourInARow(counterPlacements, counter)) {
                     return Integer.MAX_VALUE - initialDepth;
-                } else if (hasFourInARow(counterPlacements, row, col, counter.getOther())) {
+                } else if (hasFourInARow(counterPlacements, counter.getOther())) {
                     return Integer.MIN_VALUE + initialDepth;
                 }
 
                 // some weight based on depth
                 score -= 5 * initialDepth;
 
-                List<Integer> playerInARow = inARow(counterPlacements, row, col, counter);
-                List<Integer> oppInARow = inARow(counterPlacements, row, col, counter.getOther());
+                List<Integer> playerInARow = inARow(tempCounterPlacements, row, col, counter);
+                List<Integer> oppInARow = inARow(tempCounterPlacements, row, col, counter.getOther());
 
                 score += 100 * playerInARow.get(0);
                 score += 10 * playerInARow.get(1);
                 score -= 100 * oppInARow.get(0);
                 score -= 10 * oppInARow.get(1);
-
+            } catch (InvalidMoveException e) {
+                continue;
             }
         }
+
         return score;
     }
 
@@ -256,79 +270,102 @@ public class OnLeaveSlowResponse extends Player {
         int countTwos = 0;
 
         // check horizontal
-        if (col + 3 < counterPlacements.length) {
-            int filled = 0;
-            int empty = 0;
-            for (int i = 0; i < 4; i++) {
-                if (counterPlacements[col+i][row] == counter) {
-                    filled += 1;
-                } else if (counterPlacements[col+i][row] == null) {
-                    empty += 1;
-                } else {
-                    break;
+        int maxHorizontal = 0;
+        for (int initCol = col - 3; initCol <= col; initCol++) {
+            if (initCol > 0 && initCol + 3 < counterPlacements.length) {
+                int filled = 0;
+                int empty = 0;
+                for (int i = 0; i < 4; i++) {
+                    if (counterPlacements[initCol+i][row] == counter) {
+                        filled += 1;
+                    } else if (counterPlacements[initCol+i][row] == null) {
+                        empty += 1;
+                    } else {
+                        break;
+                    }
+                }
+                if (filled + empty == 4) {
+                    maxHorizontal = Math.max(maxHorizontal, filled);
                 }
             }
-            if (filled + empty == 4 && empty == 1) {
-                countThrees += 1;
-            } else if (filled + empty == 4 && empty == 2) {
-                countTwos += 1;
-            }
+        }
+        if (maxHorizontal == 3) {
+            countThrees += 1;
+        } else if (maxHorizontal == 2) {
+            countTwos += 1;
         }
 
         // check vertical
+        int maxVertical = 0;
         if (row + 3 < counterPlacements[col].length) {
-            int filled = 0;
             for (int i = 0; i < 3; i++) {
                 if (counterPlacements[col][row+i] == counter) {
-                    filled += 1;
+                    maxVertical += 1;
                 } else {
+                    if (counterPlacements[col][row+i] == counter.getOther()) {
+                        maxVertical = 0;
+                    }
                     break;
                 }
             }
-            if (filled == 3) {
+            if (maxVertical == 3) {
                 countThrees += 1;
-            } else if (filled == 2) {
+            } else if (maxVertical == 2) {
                 countTwos += 1;
             }
         }
 
         // check diagonal up right
-        if (col + 3 < counterPlacements.length && row + 3 < counterPlacements[col].length) {
-            int filled = 0;
-            int empty = 0;
-            for (int i = 0; i < 4; i++){
-                if (counterPlacements[col+i][row+i] == counter) {
-                    filled += 1;
-                } else if (counterPlacements[col+i][row+i] == null) {
-                    empty += 1;
-                } else {
-                    break;
+        int maxDiagUpRightt = 0;
+        for (int diff = 0; diff <= 3; diff++) {
+            if (col - diff > 0 && col - diff + 3 < counterPlacements.length
+                    && row - diff > 0 && row - diff + 3 < counterPlacements[col].length) {
+                int filled = 0;
+                int empty = 0;
+                for (int i = 0; i < 4; i++){
+                    if (counterPlacements[col - diff + i][row - diff + i] == counter) {
+                        filled += 1;
+                    } else if (counterPlacements[col - diff + i][row - diff + i] == null) {
+                        empty += 1;
+                    } else {
+                        break;
+                    }
+                    if (filled + empty == 4) {
+                        maxDiagUpRightt = Math.max(maxDiagUpRightt, filled);
+                    }
                 }
-                if (filled + empty == 4 && empty == 1) {
-                    countThrees += 1;
-                } else if (filled + empty == 4 && empty == 2) {
-                    countTwos += 1;
-                }
+            }
+            if (maxDiagUpRightt == 3) {
+                countThrees += 1;
+            } else if (maxDiagUpRightt == 2) {
+                countTwos += 1;
             }
         }
 
         // check diagonal up left
-        if (col + 3 < counterPlacements.length && row - 3 > 0) {
-            int filled = 0;
-            int empty = 0;
-            for (int i = 0; i < 4; i++) {
-                if (counterPlacements[col+i][row-i] == counter) {
-                    filled += 1;
-                } else if (counterPlacements[col+i][row-i] == null) {
-                    empty += 1;
-                } else {
-                    break;
+        int maxDiagUpLeft = 0;
+        for (int diff = 0; diff <= 3; diff++) {
+            if (col - diff > 0 && col - diff + 3 < counterPlacements.length
+                    && row + diff < counterPlacements[col].length && row + diff - 3 > 0) {
+                int filled = 0;
+                int empty = 0;
+                for (int i = 0; i < 4; i++){
+                    if (counterPlacements[col - diff + i][row + diff - i] == counter) {
+                        filled += 1;
+                    } else if (counterPlacements[col - diff + i][row + diff - i] == null) {
+                        empty += 1;
+                    } else {
+                        break;
+                    }
+                    if (filled + empty == 4) {
+                        maxDiagUpLeft = Math.max(maxDiagUpLeft, filled);
+                    }
                 }
-                if (filled + empty == 4 && empty == 1) {
-                    countThrees += 1;
-                } else if (filled + empty == 4 && empty == 2) {
-                    countTwos += 1;
-                }
+            }
+            if (maxDiagUpLeft == 3) {
+                countThrees += 1;
+            } else if (maxDiagUpLeft == 2) {
+                countTwos += 1;
             }
         }
 
